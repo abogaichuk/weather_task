@@ -1,0 +1,21 @@
+# Cargo
+/target
+**/target
+Cargo.lock
+
+# VSCode / JetBrains / other editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Rust / tooling
+rustfmt.toml
+clippy.toml
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

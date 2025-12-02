@@ -1,0 +1,4 @@
+[alias]
+lint = "clippy --workspace --all-targets --all-features -- -D warnings"
+# cargo clean --doc
+docs = "doc --workspace --all-features --no-deps"
