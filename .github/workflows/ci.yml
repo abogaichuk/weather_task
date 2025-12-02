@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: Format, Clippy, Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      # Respect your rust-toolchain.toml (stable + components)
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: clippy,rustfmt
+
+      - name: Show Rust version
+        run: rustc --version && cargo --version
+
+      - name: Cargo fmt (check only)
+        run: cargo fmt --all -- --check
+
+      - name: Cargo clippy (workspace, all targets, deny warnings)
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+      - name: Cargo test
+        run: cargo test --workspace --all-features
+
+      - name: Cargo doc
+        run: cargo doc --workspace --all-features --no-deps
+
