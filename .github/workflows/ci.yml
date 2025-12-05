@@ -18,7 +18,6 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
-      # Respect your rust-toolchain.toml (stable + components)
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
