@@ -1,10 +1,13 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use reqwest::Client;
 use serde::Deserialize;
 
-use crate::{model::{WeatherRequest, WeatherResponse}, provider::{DateRequest, classify_date}};
+use crate::{
+    model::{WeatherRequest, WeatherResponse},
+    provider::{DateRequest, classify_date},
+};
 
 use super::WeatherProvider;
 
@@ -16,10 +19,7 @@ pub struct OpenWeatherProvider {
 
 impl OpenWeatherProvider {
     pub fn new(api_key: String) -> Self {
-        Self {
-            api_key,
-            http: Client::new(),
-        }
+        Self { api_key, http: Client::new() }
     }
 
     async fn fetch_current(&self, address: &str) -> Result<WeatherResponse> {
@@ -28,20 +28,13 @@ impl OpenWeatherProvider {
         let res = self
             .http
             .get(url)
-            .query(&[
-                ("q", address),
-                ("appid", self.api_key.as_str()),
-                ("units", "metric"),
-            ])
+            .query(&[("q", address), ("appid", self.api_key.as_str()), ("units", "metric")])
             .send()
             .await
             .context("Failed to send request to OpenWeather (current weather)")?;
 
         let status = res.status();
-        let body = res
-            .text()
-            .await
-            .context("Failed to read OpenWeather current response body")?;
+        let body = res.text().await.context("Failed to read OpenWeather current response body")?;
 
         if !status.is_success() {
             return Err(anyhow!(
@@ -57,7 +50,8 @@ impl OpenWeatherProvider {
         let observation_time = unix_to_utc(parsed.dt).unwrap_or_else(Utc::now);
 
         let condition = parsed
-            .weather.first()
+            .weather
+            .first()
             .map(|w| w.description.clone())
             .unwrap_or_else(|| "Unknown".to_string());
 
@@ -79,20 +73,13 @@ impl OpenWeatherProvider {
         let res = self
             .http
             .get(url)
-            .query(&[
-                ("q", address),
-                ("appid", self.api_key.as_str()),
-                ("units", "metric"),
-            ])
+            .query(&[("q", address), ("appid", self.api_key.as_str()), ("units", "metric")])
             .send()
             .await
             .context("Failed to send request to OpenWeather (5-day forecast)")?;
 
         let status = res.status();
-        let body = res
-            .text()
-            .await
-            .context("Failed to read OpenWeather forecast response body")?;
+        let body = res.text().await.context("Failed to read OpenWeather forecast response body")?;
 
         if !status.is_success() {
             return Err(anyhow!(
@@ -116,7 +103,8 @@ impl OpenWeatherProvider {
         let observation_time = unix_to_utc(entry.dt).unwrap_or_else(Utc::now);
 
         let condition = entry
-            .weather.first()
+            .weather
+            .first()
             .map(|w| w.description.clone())
             .unwrap_or_else(|| "Unknown".to_string());
 
@@ -134,7 +122,6 @@ impl OpenWeatherProvider {
         })
     }
 }
-
 
 #[derive(Debug, Deserialize)]
 struct OwMain {
@@ -189,16 +176,12 @@ impl WeatherProvider for OpenWeatherProvider {
         let date_req = classify_date(now, request.when);
 
         match date_req {
-            DateRequest::Current => {
-                self.fetch_current(&request.address).await
-            }
-            DateRequest::Past(dt) => {
-                Err(anyhow!(
-                    "Historical weather ({}) is not supported by free OpenWeather API.\n\
+            DateRequest::Current => self.fetch_current(&request.address).await,
+            DateRequest::Past(dt) => Err(anyhow!(
+                "Historical weather ({}) is not supported by free OpenWeather API.\n\
                      Only current weather and up to 5 days forecast are available.",
-                    dt
-                ))
-            }
+                dt
+            )),
             DateRequest::Future(dt) => {
                 let max_forecast = now + chrono::Duration::days(5);
                 if dt > max_forecast {
@@ -216,16 +199,11 @@ impl WeatherProvider for OpenWeatherProvider {
     }
 }
 
-
 fn unix_to_utc(ts: i64) -> Option<DateTime<Utc>> {
     NaiveDateTime::from_timestamp_opt(ts, 0).map(|ndt| DateTime::<Utc>::from_utc(ndt, Utc))
 }
 
 fn truncate_body(body: &str) -> String {
     const MAX: usize = 200;
-    if body.len() > MAX {
-        format!("{}...", &body[..MAX])
-    } else {
-        body.to_string()
-    }
+    if body.len() > MAX { format!("{}...", &body[..MAX]) } else { body.to_string() }
 }
