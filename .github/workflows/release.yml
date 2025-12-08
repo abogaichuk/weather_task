@@ -6,7 +6,7 @@ on:
       - "v*"
 
 permissions:
-  contents: write
+  contents: write   # REQUIRED for creating releases
 
 jobs:
   build-release:
@@ -16,27 +16,36 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest, macos-latest, windows-latest ]
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
 
-      - name: Install Rust toolchain (stable)
+      - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache cargo registry + target
+      - name: Cache cargo registry and target
         uses: Swatinem/rust-cache@v2
 
       - name: Build weather-cli (release)
         run: cargo build -p weather-cli --release --verbose
 
-      - name: Upload weather-cli artifact
+      # Upload Linux/macOS binary
+      - name: Upload weather-cli (Unix)
+        if: matrix.os != 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: weather-cli-${{ matrix.os }}
-          path: |
-            target/release/weather-cli*
+          path: target/release/weather-cli
+
+      # Upload Windows binary
+      - name: Upload weather-cli (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: weather-cli-${{ matrix.os }}
+          path: target/release/weather-cli.exe
 
   github-release:
     name: Create GitHub Release
@@ -44,18 +53,17 @@ jobs:
     needs: build-release
 
     steps:
-      - name: Download artifacts
+      - name: Download all artifacts from build jobs
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: List downloaded artifacts (debug)
+      - name: List artifacts (debug)
         run: ls -R artifacts
 
-      - name: Create GitHub Release
+      - name: Create GitHub Release and upload assets
         uses: softprops/action-gh-release@v1
         with:
-          files: |
-            artifacts/**/*
+          files: artifacts/**/*   # attach only binaries
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
