@@ -11,7 +11,7 @@ pub mod config;
 pub mod model;
 pub mod provider;
 
-pub use config::{Config, DefaultProvider, ProviderConfig};
+pub use config::{Config, ProviderConfig};
 pub use model::{WeatherRequest, WeatherResponse};
 pub use provider::{ProviderId, WeatherProvider};
 

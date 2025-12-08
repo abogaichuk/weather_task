@@ -2,41 +2,53 @@ name: CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, master ]
-
-env:
-  CARGO_TERM_COLOR: always
+    branches: [ main ]
 
 jobs:
-  check:
-    name: Format, Clippy, Tests
-    runs-on: ubuntu-latest
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
 
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
 
-      # Respect your rust-toolchain.toml (stable + components)
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
-          components: clippy,rustfmt
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Show Rust version
-        run: rustc --version && cargo --version
+      - name: Cache cargo registry + target
+        uses: Swatinem/rust-cache@v2
 
-      - name: Cargo fmt (check only)
+      - name: Build workspace (all targets)
+        run: cargo build --workspace --all-targets --verbose
+
+      # Heavy checks only on Linux
+      - name: Check formatting
+        if: matrix.os == 'ubuntu-latest'
         run: cargo fmt --all -- --check
 
-      - name: Cargo clippy (workspace, all targets, deny warnings)
+      - name: Clippy (fail on warnings)
+        if: matrix.os == 'ubuntu-latest'
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
-      - name: Cargo test
+      - name: Run tests
+        if: matrix.os == 'ubuntu-latest'
         run: cargo test --workspace --all-features
 
-      - name: Cargo doc
+      - name: Build docs
+        if: matrix.os == 'ubuntu-latest'
         run: cargo doc --workspace --all-features --no-deps
 
+      - name: Upload docs artifact
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs
+          path: target/doc
