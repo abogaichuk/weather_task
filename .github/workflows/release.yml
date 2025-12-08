@@ -5,6 +5,9 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: write
+
 jobs:
   build-release:
     name: Build release on ${{ matrix.os }}
@@ -34,6 +37,7 @@ jobs:
           name: weather-cli-${{ matrix.os }}
           path: |
             target/release/weather-cli*
+
   github-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
