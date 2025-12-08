@@ -3,6 +3,7 @@ use crate::{
     provider::{openweather::OpenWeatherProvider, weatherapi::WeatherApiProvider},
 };
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use std::{convert::TryFrom, fmt::Debug};
 
 pub mod openweather;
@@ -80,10 +81,61 @@ pub fn default_provider_from_config(config: &Config) -> anyhow::Result<Box<dyn W
     provider_from_config(id, config)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DateRequest {
+    Current,
+    Future(DateTime<Utc>),
+    Past(DateTime<Utc>),
+}
+
+pub fn classify_date(now: DateTime<Utc>, when: Option<DateTime<Utc>>) -> DateRequest {
+    match when {
+        None => DateRequest::Current,
+        Some(dt) => {
+            if dt < now {
+                DateRequest::Past(dt)
+            } else {
+                DateRequest::Future(dt)
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::{Duration, TimeZone};
     use crate::config::Config;
+
+    fn ts(y: i32, m: u32, d: u32, h: u32, min: u32, s: u32) -> DateTime<Utc> {
+        Utc.with_ymd_and_hms(y, m, d, h, min, s).unwrap()
+    }
+
+    #[test]
+    fn none_means_current() {
+        let now = ts(2025, 3, 10, 12, 0, 0);
+        let result = classify_date(now, None);
+        assert_eq!(result, DateRequest::Current);
+    }
+
+    #[test]
+    fn past_date_is_past() {
+        let now = ts(2025, 3, 10, 12, 0, 0);
+        let past = now - Duration::seconds(1);
+
+        let result = classify_date(now, Some(past));
+        assert_eq!(result, DateRequest::Past(past));
+    }
+
+    #[test]
+    fn now_or_future_is_future() {
+        let now = ts(2025, 3, 10, 12, 0, 0);
+        let same = now;
+        let future = now + Duration::hours(1);
+
+        assert_eq!(classify_date(now, Some(same)), DateRequest::Future(same));
+        assert_eq!(classify_date(now, Some(future)), DateRequest::Future(future));
+    }
 
     #[test]
     fn provider_id_as_str_roundtrip() {
