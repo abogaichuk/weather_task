@@ -1,0 +1,10 @@
+# https://rust-lang.github.io/rustfmt/?version=v1.8.0&search=#config
+edition = "2024"
+use_small_heuristics = "Max"
+newline_style = "Unix"
+
+max_width = 100
+imports_granularity = "Module"
+group_imports = "StdExternalCrate"
+reorder_impl_items = true
+wrap_comments = true

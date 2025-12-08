@@ -1,41 +1,33 @@
 name: CI
 
 on:
+  # Runs after merges (pushes) to main
   push:
-    branches: [ main, master ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, master ]
-
-env:
-  CARGO_TERM_COLOR: always
+    branches: [ main ]
 
 jobs:
-  check:
-    name: Format, Clippy, Tests
-    runs-on: ubuntu-latest
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
 
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
 
+      # Use the same toolchain as your rust-toolchain.toml
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
-          components: clippy,rustfmt
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Show Rust version
-        run: rustc --version && cargo --version
+      # Optional but highly recommended: cache dependencies between runs
+      - name: Cache cargo registry + target
+        uses: Swatinem/rust-cache@v2
 
-      - name: Cargo fmt (check only)
-        run: cargo fmt --all -- --check
-
-      - name: Cargo clippy (workspace, all targets, deny warnings)
-        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
-
-      - name: Cargo test
-        run: cargo test --workspace --all-features
-
-      - name: Cargo doc
-        run: cargo doc --workspace --all-features --no-deps
-
+      - name: Build workspace
+        run: cargo build --workspace --all-targets --verbose

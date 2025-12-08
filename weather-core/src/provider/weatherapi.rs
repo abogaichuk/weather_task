@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use chrono::{DateTime, NaiveDateTime, Timelike, Utc};
+use chrono::{DateTime, Timelike, Utc};
 use reqwest::Client;
 use serde::Deserialize;
 
@@ -47,8 +47,12 @@ impl WeatherApiProvider {
         let parsed: WaResponse =
             serde_json::from_str(&body).context("Failed to parse WeatherAPI current JSON")?;
 
-        let ts = parsed.current.last_updated_epoch.or(parsed.location.localtime_epoch);
-        let observation_time = ts.and_then(unix_to_utc).unwrap_or_else(Utc::now);
+        let observation_time = parsed
+            .current
+            .last_updated_epoch
+            .or(parsed.location.localtime_epoch)
+            .and_then(|ts| DateTime::from_timestamp(ts, 0))
+            .unwrap_or_else(Utc::now);
 
         let location_name = format!("{}, {}", parsed.location.name, parsed.location.country);
         let wind_speed_mps = parsed.current.wind_kph / 3.6;
@@ -123,7 +127,7 @@ impl WeatherApiProvider {
         let target_ts = unixdt;
 
         let day =
-            parsed.forecast.forecastday.get(0).ok_or_else(|| {
+            parsed.forecast.forecastday.first().ok_or_else(|| {
                 anyhow::anyhow!("WeatherAPI response contained no forecastday data")
             })?;
 
@@ -133,7 +137,8 @@ impl WeatherApiProvider {
             .min_by_key(|h| (h.time_epoch - target_ts).abs())
             .ok_or_else(|| anyhow::anyhow!("WeatherAPI response contained no hourly data"))?;
 
-        let observation_time = unix_to_utc(hour_entry.time_epoch).unwrap_or_else(Utc::now);
+        let observation_time =
+            DateTime::from_timestamp(hour_entry.time_epoch, 0).unwrap_or_else(Utc::now);
         let wind_speed_mps = hour_entry.wind_kph / 3.6;
 
         Ok(WeatherResponse {
@@ -221,10 +226,6 @@ impl WeatherProvider for WeatherApiProvider {
             }
         }
     }
-}
-
-fn unix_to_utc(ts: i64) -> Option<DateTime<Utc>> {
-    NaiveDateTime::from_timestamp_opt(ts, 0).map(|ndt| DateTime::<Utc>::from_utc(ndt, Utc))
 }
 
 fn truncate_body(body: &str) -> String {

@@ -1,6 +1,6 @@
 use anyhow::{Context, Result, anyhow};
 use async_trait::async_trait;
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use reqwest::Client;
 use serde::Deserialize;
 
@@ -47,7 +47,7 @@ impl OpenWeatherProvider {
         let parsed: OwCurrentResponse =
             serde_json::from_str(&body).context("Failed to parse OpenWeather current JSON")?;
 
-        let observation_time = unix_to_utc(parsed.dt).unwrap_or_else(Utc::now);
+        let observation_time = DateTime::from_timestamp(parsed.dt, 0).unwrap_or_else(Utc::now);
 
         let condition = parsed
             .weather
@@ -100,7 +100,7 @@ impl OpenWeatherProvider {
             .min_by_key(|e| (e.dt - target_ts).abs())
             .ok_or_else(|| anyhow!("OpenWeather forecast response contained no data"))?;
 
-        let observation_time = unix_to_utc(entry.dt).unwrap_or_else(Utc::now);
+        let observation_time = DateTime::from_timestamp(entry.dt, 0).unwrap_or_else(Utc::now);
 
         let condition = entry
             .weather
@@ -197,10 +197,6 @@ impl WeatherProvider for OpenWeatherProvider {
             }
         }
     }
-}
-
-fn unix_to_utc(ts: i64) -> Option<DateTime<Utc>> {
-    NaiveDateTime::from_timestamp_opt(ts, 0).map(|ndt| DateTime::<Utc>::from_utc(ndt, Utc))
 }
 
 fn truncate_body(body: &str) -> String {
